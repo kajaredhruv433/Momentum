@@ -1,4 +1,6 @@
-# Momentum V2: Autonomous Multi-Agent AI Recruitment and Live Voice Interview Platform
+# Momentum V2 — Autonomous Agentic AI Interviewer
+
+> An adaptive AI interviewer that dynamically forms interview panels, decides what to evaluate next, selects the appropriate interviewer, conducts real-time voice interviews, and generates evidence-based candidate assessments.
 
 [![Momentum V2 Live Demonstration](demo/demo-video-preview.png)](https://youtu.be/L0X71raKuLc?si=E0k-VsISpUQmNBFF)
 
