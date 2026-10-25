@@ -37,16 +37,24 @@ In Momentum, interview panels and questions are **not hardcoded or predefined**:
 
 ---
 
-## Evolution: Version 2.1 vs Version 2.2
+## Evolution: Version 2.1 through Version 3.2
+
+Momentum progressed from the 2.1 foundation through 2.2 and 2.3, then into versions 3.0 and 3.2. This public showcase summarizes the releases in [the release history](docs/release-history.md); the 3.0 and 3.2 snapshots are grouped as one major release line because 3.2 is an incremental refinement. No production source code is included here.
+
+### Version 2.1 vs Version 2.2
 
 ### Strategic Shift: Eliminating Agora Infrastructure Costs for Direct ElevenLabs Implementation
 
 In Version 2.1, audio streaming was routed through Agora Conversational AI and Agora RTC. While functional, this introduced significant per-minute telecommunication service costs, intermediary bridging latency, and external gateway dependencies.
 
-In **Version 2.2**, Momentum transitioned to a **direct, high-performance internal voice pipeline**:
+In **Version 2.2**, Momentum transitioned to a **direct voice pipeline**:
 - **Zero Agora Telephony Overhead**: Eliminated Agora vendor infrastructure costs completely by capturing audio directly in the browser via native HTML5 Web Audio API (`AudioWorklet` streaming 16kHz mono PCM) and relaying it through FastAPI WebSockets.
 - **Direct ElevenLabs Integration**: Powered by ElevenLabs Scribe Realtime STT (`scribe_v2_realtime`) and Flash v2.5 Neural TTS (`eleven_flash_v2_5`), resulting in lower latency, richer conversational cadences, and instant client-side barge-in buffer flushing.
 - **Enhanced LLM Cognitive Reasoning**: Re-engineered the decision-making brain in Version 2.2 to perform continuation checks before every question, multi-key token-bucket rotation (1 to 20 keys per provider), and multimodal vision evaluation of system design drawings.
+
+### Version 2.3 and Version 3
+
+Version 2.3 focused on interview flow and prompt refinements. Version 3.0, with the incremental 3.2 improvements, unified the recruitment and interviewer backend, refined the interview lifecycle and model integration, and expanded resume-aware analysis and coding-interview support. See the [release history](docs/release-history.md) for the high-level progression.
 
 ---
 
@@ -235,8 +243,7 @@ momentum-v2/
 | **Styling & Components** | Tailwind CSS, Lucide Icons | Responsive UI, audio telemetry monitors, and canvas styling |
 | **Speech-to-Text (STT)** | ElevenLabs Realtime Scribe (`scribe_v2_realtime`) | Sub-second streaming candidate voice transcription |
 | **Text-to-Speech (TTS)** | ElevenLabs Flash v2.5 (`eleven_flash_v2_5`) | Low-latency neural voice synthesis across 21+ personas |
-| **Fast Reasoning Brain** | Groq LPU Inference (Llama-3.3-70b-versatile) | Sub-second conversational turn generation (<= 7,500 tokens) |
-| **Deep Reasoning Engine** | Google AI Studio Gemini (Gemini 2.5 Flash) | Large-context resume ingestion and final report synthesis (> 7,500 tokens) |
+| **Reasoning Engine (Versions 2.1–3.0)** | Groq and Google Gemini, then a shared Gemini/LangChain interface in the 3.x line | Adaptive turn generation, candidate context analysis, and report synthesis |
 | **Primary Datastore** | MongoDB, Motor (Async Driver), PyMongo | Persistence for jobs, candidate applications, transcripts, and scorecards |
 | **Vector Database** | Qdrant Cloud Client | Semantic indexing of candidate resume chunks for RAG context retrieval |
 | **Document Processing** | PyMuPDF (`fitz`), `python-docx` | Text and section extraction from candidate PDF and DOCX resumes |
@@ -246,6 +253,7 @@ momentum-v2/
 
 ## Documentation Index
 
+- [Release History: V2.1 through V3.2](docs/release-history.md)
 - [Comprehensive Architecture: V2.1 vs V2.2](docs/architecture.md)
 - [Multi-Agent Cognitive Reasoning & Workflow](docs/agent-workflow.md)
 - [System Design and Engineering Principles](docs/system-design.md)
@@ -261,7 +269,7 @@ momentum-v2/
 
 ## Contact and Recruiter Inquiries
 
-For technical evaluations, code review access, or inquiries regarding Momentum V2:
+For technical evaluations, code review access, or inquiries regarding Momentum:
 
 - **Author**: Dhruv Kajare
 - **Email**: [kajaredhruv3@gmail.com](mailto:kajaredhruv3@gmail.com)

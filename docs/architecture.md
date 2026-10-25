@@ -1,4 +1,4 @@
-# Momentum Architectural Specifications: Version 2.1 vs Version 2.2
+# Momentum Architectural Specifications: Version 2.1 through Version 3.2
 
 ## Executive Architectural Summary
 
@@ -6,6 +6,8 @@ Momentum is an autonomous Agentic AI recruitment and live voice interview platfo
 
 - **Version 2.1 (Foundation Architecture)**: Initial release introducing real-time multi-role AI interview panels, dual-model LLM routing (Groq and Google Gemini), Agora Conversational AI audio transport, and an end-to-end recruitment portal with MongoDB persistence.
 - **Version 2.2 (Enterprise No-Agora Architecture)**: Engineered with internal low-latency WebAudio pipelines, direct ElevenLabs Realtime Scribe STT WebSocket streaming, ElevenLabs Flash v2.5 Neural TTS, an externalized multi-tier reasoning brain (`otheragent.py`), multi-key token-bucket rate limit rotation (1 to 20 keys per provider), Qdrant Cloud semantic vector indexing (RAG), an interactive System Design Canvas with Multimodal Vision analysis, and an authoritative server-side monotonic timer.
+
+The subsequent releases extended this foundation. Version 2.3 refined interview prompts and interaction flow. Version 3.0 and its incremental 3.2 update unified recruitment and interviewer APIs, improved the interview lifecycle and shared model integration, and added resume-aware analysis and coding-interview support. These later milestones are summarized in the [release history](release-history.md). This document's detailed side-by-side architecture diagrams focus on 2.1 and 2.2; later implementation details are deliberately kept out of this public showcase.
 
 ---
 
