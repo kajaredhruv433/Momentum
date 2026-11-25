@@ -1,104 +1,65 @@
-# Adaptive Multi-Stage Interview Lifecycle
+# Momentum Interview Flow
 
-## Executive Overview
+Momentum pairs an adaptive interviewer with a predictable session structure. The panel responds to candidate answers, while the interview controller keeps the session within three timed stages: Normal, Extended, and Final.
 
-The Momentum V2 interview engine orchestrates an adaptive, structured 6-stage lifecycle progression. Rather than following a predetermined questionnaire, the system dynamically adjusts question complexity, speaker roles, and evaluation depth based on the candidate's real-time performance and elapsed server time.
-
----
-
-## 6-Stage Lifecycle State Machine
+## The three-stage lifecycle
 
 ```mermaid
 stateDiagram-v2
-    [*] --> StartStage : Candidate Enters Room
-    StartStage --> NormalStage : question_started Event Fired
-
-    state NormalStage {
-        [*] --> CoreQuestions
-        CoreQuestions --> DynamicFollowUps
-        DynamicFollowUps --> CanvasDrawing : Optional Design Prompt
-        CanvasDrawing --> CoreQuestions
-    }
-
-    NormalStage --> ExtendedStage : Elapsed Time >= Base Time (30m)
-    NormalStage --> ConclusionStage : Early Exit (Inadequate Answers)
-
-    state ExtendedStage {
-        [*] --> HighComplexityQuestions
-        HighComplexityQuestions --> TradeoffScenarios
-    }
-
-    ExtendedStage --> FinalStage : Elapsed Time >= Extended Time (45m)
-
-    state FinalStage {
-        [*] --> DecisiveSingleQuestion
-        DecisiveSingleQuestion --> FinalAnswerSubmitted
-    }
-
-    FinalStage --> ConclusionStage : Unconditional Termination
-    ConclusionStage --> ReportStage : speech_finished Event Fired
-    ReportStage --> [*] : Validated Scorecard Saved to MongoDB
+    [*] --> Normal
+    Normal --> Extended: Normal stage completes
+    Normal --> Conclusion: Interview closes early
+    Extended --> Final: Extended stage completes
+    Final --> Conclusion: Final response completes
+    Conclusion --> Evaluation: Closing is complete
+    Evaluation --> [*]
 ```
 
----
+The server controls the stage clock and transitions. Exact session length can vary with the configured interview plan: a session may finish after the normal stage or continue through extended and final rounds. This gives candidates a defined time boundary while leaving the question path adaptive.
 
-## Detailed Stage Analysis
+## What happens inside a stage
 
-### 1. Start Stage (Session Initialization & Opening Greeting)
-![Interview Opening Stage](screenshots/interview-room/02_interview_opening_stage.png)
-- **Objective**: Establish rapport, introduce the dynamic panel, and present the opening question.
-- **Workflow**:
-  - The backend ingests the candidate resume and job criteria from MongoDB.
-  - Instantiates the dynamic panel and selects the opening speaker (typically HR Manager Bella).
-  - Prepares the opening spoken greeting via ElevenLabs Neural TTS.
-- **Timer Mechanism**: The authoritative server clock remains idle until the browser emits `question_started`, indicating that the candidate's audio player is actively playing the greeting.
+1. A panel member asks a role-appropriate question based on the candidate context and areas that still need evidence.
+2. The candidate responds by voice; speech is transcribed for the interview record. The candidate may also submit typed answers when appropriate.
+3. The controller considers the answer and current interview state, then chooses a follow-up, a new area, another interviewer, an available tool, or a transition.
+4. The interview room displays the next turn, transcript, and any relevant response tool.
 
----
+The panel's roles provide different perspectives, such as technical depth, project ownership, communication, or product judgment. They share the session context and are coordinated through the same interview flow.
 
-### 2. Normal Stage (Core Competency & Technical Validation)
-![HR Manager Turn](screenshots/interview-room/03_hr_manager_turn.png)
-![Lead Technical Interviewer Turn](screenshots/interview-room/04_lead_tech_interviewer_turn.png)
-- **Active Window**: `0 <= elapsed_time < base_time` (Default: 30 minutes).
-- **Focus**: Core technical competencies, project validation, behavioral alignment, and foundational engineering principles.
-- **Autonomous Probing Loop**:
-  - Candidate responds via microphone.
-  - ElevenLabs Realtime Scribe STT transcribes speech to text.
-  - Groq LPU evaluates answer depth against the competency matrix.
-  - If answers lack depth, targeted follow-ups are generated.
-  - If a topic is validated, the floor is handed to the next appropriate panel member.
-- **System Design Canvas**: The Lead Architect can trigger the drawing canvas for architectural topology sketches.
+## Optional assessment modes
 
----
+### System-design canvas
 
-### 3. Extended Stage (High-Complexity Probing & Trade-Offs)
-![Extended Stage Deep Dive](screenshots/interview-room/08_extended_stage_deep_dive.png)
-- **Active Window**: `base_time <= elapsed_time < extended_time` (Default: 30 to 45 minutes).
-- **Focus**: Production incident response, distributed concurrency, cache stampede mitigation, failure recovery, and cross-functional business trade-offs.
-- **Cross-Examination**: Panel members cross-examine the candidate, challenging pure technical implementations with business constraints.
+When a question calls for architecture, the candidate can draw a design on the canvas and explain the decisions. The visual response becomes part of the assessment evidence. The canvas is an optional action within the interview, not a separate stage.
 
----
+### Typing pad
 
-### 4. Final Stage (The Decisive Challenge)
-- **Active Window**: `elapsed_time >= extended_time` (Default: 45+ minutes).
-- **Enforcement Rule**: The reasoning engine permits **strictly ONE decisive question** designed to test maximum candidate capability.
-- **Termination**: Once the candidate submits their answer, the interview concludes unconditionally.
+When a question asks for code, syntax, or SQL, the typing pad appears in the interview room. The candidate submits a concise written response and the panel can continue the interview using it as evidence.
 
----
+### GitHub project challenge
 
-### 5. Conclusion Stage (Closing Remarks)
-![Interview Conclusion Stage](screenshots/interview-room/09_interview_conclusion.png)
-- **Objective**: Deliver professional closing remarks and thank the candidate for their time.
-- **Workflow**: Selected panel member delivers closing remarks via ElevenLabs Neural TTS. The system waits for client-side `speech_finished` event before compiling the final evaluation report.
+Candidates can select a project repository and discuss their own contribution while the panel continues its questions. Repository analysis and challenge preparation happen in the background. When ready, the interview can open a focused coding round in a temporary isolated workspace. The candidate investigates a described regression, may ask the assistant for conceptual guidance, and can run a focused test if the selected code can be executed practically. The test file is locked from the candidate.
 
----
+The submission is first evaluated for correctness against original project behavior. A correct solution is then compared with the reference approach. After the coding round, the candidate returns to the ongoing interview.
 
-### 6. Evaluation Report Stage (Scorecard Synthesis & Persistence)
-![Post Interview Summary](screenshots/interview-room/10_post_interview_summary.png)
-![Recruiter Candidate Leaderboard](screenshots/recruiter-dashboard/04_recruiter_leaderboard_ranked.png)
-![Detailed AI Evaluation Scorecard](screenshots/recruiter-dashboard/05_detailed_ai_evaluation_scorecard.png)
-- **Objective**: Synthesize objective, evidence-backed evaluation scorecards.
-- **Workflow**:
-  - Full transcript, timestamps, and canvas analyses are dispatched to Gemini via `otheragent.py`.
-  - Computes numeric scores (0-100) across overall match, technical competence, problem-solving, and communication.
-  - Generates concrete strengths, concerns, and hire/reject reasons backed by exact transcript quotes.
-  - Persists the validated report to MongoDB and updates the recruiter candidate leaderboard in strictly descending score order.
+## Closing and evaluation
+
+At the end of the interview, the platform completes the closing turn and compiles an evaluation from the session evidence. This can include the transcript, typed responses, canvas work, and repository assessment results when available. The assessment is intended to give reviewers concrete evidence across communication, technical understanding, problem solving, and project contribution.
+
+## Interview room screenshots
+
+![Version 2 interviewer panel and live interview](screenshots/interview-room/04_lead_tech_interviewer_turn.png)
+
+*The Version 2 room shows the interviewer panel, current question, candidate controls, and live transcript.*
+
+![Version 2 system-design canvas](screenshots/interview-room/07_system_design_canvas_drawing.png)
+
+*The system-design canvas adds a visual response mode to the interview.*
+
+![Version 3 typing pad](screenshots/version-3/02_python_typing_pad.png)
+
+*The typing pad appears for a code response within the interview flow.*
+
+![Version 3 repository challenge](screenshots/version-3/04_repository_challenge_assistant.png)
+
+*The repository challenge combines project code, a problem description, and contextual guidance.*

@@ -1,299 +1,102 @@
-# Momentum Architectural Specifications: Version 2.1 through Version 3.2
+# Momentum System Architecture
 
-## Executive Architectural Summary
+This document describes the public product architecture across Versions 1–3. It focuses on responsibilities and information flow rather than private implementation details.
 
-Momentum is an autonomous Agentic AI recruitment and live voice interview platform. The platform has evolved across two major release architectures:
+## System overview
 
-- **Version 2.1 (Foundation Architecture)**: Initial release introducing real-time multi-role AI interview panels, dual-model LLM routing (Groq and Google Gemini), Agora Conversational AI audio transport, and an end-to-end recruitment portal with MongoDB persistence.
-- **Version 2.2 (Enterprise No-Agora Architecture)**: Engineered with internal low-latency WebAudio pipelines, direct ElevenLabs Realtime Scribe STT WebSocket streaming, ElevenLabs Flash v2.5 Neural TTS, an externalized multi-tier reasoning brain (`otheragent.py`), multi-key token-bucket rate limit rotation (1 to 20 keys per provider), Qdrant Cloud semantic vector indexing (RAG), an interactive System Design Canvas with Multimodal Vision analysis, and an authoritative server-side monotonic timer.
-
-The subsequent releases extended this foundation. Version 2.3 refined interview prompts and interaction flow. Version 3.0 and its incremental 3.2 update unified recruitment and interviewer APIs, improved the interview lifecycle and shared model integration, and added resume-aware analysis and coding-interview support. These later milestones are summarized in the [release history](release-history.md). This document's detailed side-by-side architecture diagrams focus on 2.1 and 2.2; later implementation details are deliberately kept out of this public showcase.
-
----
-
-## Strategic Evolution: Why Version 2.2 Replaced Agora with Direct ElevenLabs
-
-### 1. Cost Optimization & Telephony Elimination
-In Version 2.1, routing voice streams through Agora Conversational AI introduced substantial vendor telecommunication overhead, per-minute usage billing, and third-party bridging hops. In Version 2.2, direct implementation of ElevenLabs Realtime Scribe STT and Flash v2.5 Neural TTS over native HTML5 Web Audio WebSocket streams eliminated Agora's infrastructure costs completely, making the platform dramatically more cost-efficient and scalable for high-volume enterprise interviewing.
-
-### 2. Superior Audio Fidelity & Conversational Responsiveness
-By bypassing intermediary audio gateways, Version 2.2 directly connects the candidate's browser (via a custom 16kHz mono `AudioWorklet`) to ElevenLabs. This architectural shift resulted in:
-- Significantly lower speech-to-text turnaround latency.
-- Direct streaming MP3 neural synthesis with nuanced conversational inflection across 21+ voice personas.
-- Instantaneous client-side Web Audio buffer flushing on speech onset (sub-150ms barge-in interruption).
-
-### 3. Advanced LLM Cognitive Decision-Making
-Version 2.2 redesigned the reasoning core into a unified, token-routed brain (`otheragent.py`):
-- Dynamic continuation decisions (`CONTINUE`, `CONCLUDE`, `DRAW`) before each question.
-- Uncovered competency tracking across job requirements and resume projects.
-- Context-aware dynamic speaker selection among dynamically generated panel members.
-- Automated rate-limit protection via multi-key token bucket rotation across up to 20 keys per provider.
-
----
-
-## 1. Momentum Version 2.1 Architecture (Foundation Architecture)
-
-![Momentum Version 2.1 Architecture Diagram](../architecture/v2-1-system-architecture.png)
-
-### Version 2.1 System Architecture Flowchart (Mermaid)
+Momentum combines a recruitment portal, a live interview room, a shared interview controller, and an optional repository assessment. The controller owns the interview lifecycle and coordinates panel decisions, voice services, candidate responses, and interview tools. Repository analysis is prepared separately while the interview continues.
 
 ```mermaid
-flowchart TD
-    subgraph CandidateClient ["Candidate Interface"]
-        CAND["Candidate User"]
-        MIC_CAM["Microphone & Webcam Inputs"]
-        SPK_V21["Audio Output / Speaker"]
-        CAND <--> MIC_CAM
-        CAND <--> SPK_V21
-    end
-
-    subgraph AgoraVoice ["Agora Conversational AI Layer"]
-        AGORA_RTC["Agora RTC Audio Transport"]
-        AGORA_STT["STT (via Agora Engine)"]
-        AGORA_LLM["Agora LLM (OpenAI Relay)"]
-        AGORA_TTS["Neural TTS (ElevenLabs / MiniMax via Agora)"]
-        
-        AGORA_RTC --> AGORA_STT
-        AGORA_STT --> AGORA_LLM
-        AGORA_LLM --> AGORA_TTS
-        AGORA_TTS --> AGORA_RTC
-    end
-
-    subgraph FastAPIServer ["FastAPI Backend Core"]
-        AUTH_STATE["Authoritative State Machine"]
-        SRV_TIMER["Server-Side Monotonic Timer"]
-        WS_BUS["WebSocket Event Bus"]
-        JD_RESUME["JD & Resume Parsing Engine"]
-        
-        AUTH_STATE <--> SRV_TIMER
-        AUTH_STATE <--> WS_BUS
-        AUTH_STATE <--> JD_RESUME
-    end
-
-    subgraph DecisionBrain ["Interview Logic & Decision Brain"]
-        GATEWAY["otheragent.py Gateway"]
-        GROQ_V21["Groq LPU (Fast Prompting & Question Refinement)"]
-        GEMINI_V21["Google AI Studio Gemini (Large Context & Review Generation)"]
-        CANVAS_AI["Canvas & Drawing AI (Image Processing for System Design)"]
-        
-        GATEWAY <--> GROQ_V21
-        GATEWAY <--> GEMINI_V21
-        GATEWAY <--> CANVAS_AI
-    end
-
-    subgraph DatastoresV21 ["Datastores & Persistence"]
-        MONGO_V21["MongoDB Atlas (Interviews, Jobs, Candidate Applications)"]
-        QDRANT_V21["Qdrant Cloud (Semantic Resume Vector Chunks)"]
-    end
-
-    subgraph PostSynthesis ["Post-Interview Synthesis"]
-        REPORT_GEN["Detailed Review & Match Score Compilation"]
-        DECISION_OPTS["Hiring Decision (Strong Hire, Hire, Consider, Do Not Hire)"]
-        REPORT_GEN --> DECISION_OPTS
-    end
-
-    %% Inter-subsystem connections
-    MIC_CAM -->|WebRTC Audio Stream| AGORA_RTC
-    AGORA_RTC -->|Audio Playback Stream| SPK_V21
-    AGORA_RTC <-->|Control Signals| AUTH_STATE
-    AGORA_LLM <-->|Turn Instructions| GATEWAY
-
-    JD_RESUME -->|Extracts Info to Define Panels & Areas| GATEWAY
-    AUTH_STATE <-->|Sync State & History| GATEWAY
-    WS_BUS -->|Canvas Data| CANVAS_AI
-
-    AUTH_STATE <-->|Persist State & History| MONGO_V21
-    JD_RESUME -->|Index Resume Chunks| QDRANT_V21
-    GATEWAY -->|Retrieve Chunks for RAG Context| QDRANT_V21
-
-    AUTH_STATE -->|Final Transcript & Canvas Output| REPORT_GEN
-    GEMINI_V21 -->|Rubric Evaluation & Quotes| REPORT_GEN
-    REPORT_GEN -->|Persist Completed Scorecard| MONGO_V21
+flowchart LR
+    Candidate[Candidate] --> Portal[Candidate portal]
+    Recruiter[Recruiter] --> Portal
+    Portal <--> App[Application services]
+    Candidate <--> Room[Interview room]
+    Room <--> Controller[Interview controller]
+    App <--> Controller
+    Controller <--> Context[Role and candidate context]
+    Controller <--> Voice[Realtime speech services]
+    Controller --> Panel[Coordinated interviewer roles]
+    Controller --> Canvas[System-design canvas analysis]
+    Controller --> Typing[Code and SQL typing pad]
+    Controller --> Records[(Interview state and evaluation)]
+    Candidate -->|Selects repository and describes contribution| Intake[Background repository analysis]
+    Intake --> Challenge[Focused challenge preparation]
+    Challenge --> Sandbox[Isolated temporary workspace]
+    Room <--> Editor[Embedded assessment editor]
+    Editor <--> Sandbox
+    Sandbox --> Judge[Correctness check then approach comparison]
+    Judge --> Records
 ```
 
----
+The panel consists of distinct interviewer roles coordinated through one interview state and decision flow. It adapts questions and speakers based on the candidate's answers, role context, covered competencies, and available tools. This is an agentic interview experience with a controlled lifecycle, rather than an unbounded conversation.
 
-## 2. Momentum Version 2.2 Enterprise Architecture (No-Agora Internal Pipeline)
+## The bounded adaptive interview
 
-![Momentum Version 2.2 Enterprise Architecture Diagram](../architecture/v2-2-system-architecture.png)
-
-### Version 2.2 System Architecture Flowchart (Mermaid)
+The platform manages a timed sequence of Normal, Extended, and Final stages. The server-side lifecycle controls stage transitions and the session clock. Within each stage, the interviewer can choose among relevant follow-ups and assessment modes. A canvas prompt, a typing-pad question, or a repository challenge is a possible interview action, not a separate stage.
 
 ```mermaid
-flowchart TD
-    subgraph ClientLayer ["Candidate Interface (Browser)"]
-        CAND_22["Candidate User"]
-        MIC_22["16kHz PCM Mono Mic Capture (AudioWorklet)"]
-        SPK_22["Web Audio MP3 Streaming Player"]
-        CANVAS_22["Interactive System Design Drawing Canvas"]
-        TRANS_22["Live Scrolling Transcript & Monotonic Clock"]
-        BARGE_22["Client-Side Barge-In & Interruption Flush"]
-
-        CAND_22 <--> MIC_22
-        CAND_22 <--> SPK_22
-        CAND_22 <--> CANVAS_22
-        CAND_22 <--> TRANS_22
-        MIC_22 -.->|Speech Detected| BARGE_22
-        BARGE_22 -.->|Instant Playback Halt| SPK_22
-    end
-
-    subgraph VoiceEngine ["Internal Voice & Audio Processing Engine"]
-        RTC_CTRL["Real-time WebAudio / WebSocket Controller"]
-        EL_STT_22["ElevenLabs Realtime STT API (scribe_v2_realtime)"]
-        EL_TTS_22["Direct ElevenLabs Neural TTS API (eleven_flash_v2_5)"]
-        VOICE_REG["Persona Voice Registry (21+ Dynamic Profiles)"]
-
-        RTC_CTRL -->|Direct Stream| EL_STT_22
-        EL_STT_22 -->|Committed Transcript| RTC_CTRL
-        VOICE_REG -->|Voice ID Parameter| EL_TTS_22
-        EL_TTS_22 -->|Chunked MP3 Stream| RTC_CTRL
-    end
-
-    subgraph Orchestrator ["AI Interview Orchestrator & Agent Gateway"]
-        STATE_MACH["Authoritative State Machine"]
-        SRV_CLOCK["Authoritative Monotonic Server Timer"]
-        WS_HUB["WebSocket Event Bus (/events & /audio-stream)"]
-        PANEL_GEN["Dynamic Panel Formulator (panel.py)"]
-
-        STATE_MACH <--> SRV_CLOCK
-        STATE_MACH <--> WS_HUB
-        STATE_MACH <--> PANEL_GEN
-    end
-
-    subgraph LLMUnits ["LLM & Logic Processing Units"]
-        AGENT_GW["otheragent.py Gateway & Primary AI Agent"]
-        GROQ_LPU_22["Groq LPU Engine (Sub-Second Conversational Turn Decision)"]
-        GEMINI_22["Google AI Studio Gemini (Large Context Ingestion & Report Synthesis)"]
-        CANVAS_VISION["Canvas & Drawing AI (Multimodal Vision Engine)"]
-        TOKEN_ROUTER_22["Token Counter (Threshold: 7,500 Tokens)"]
-        KEY_POOL_22["Multi-Key Token Bucket Rotation (1-20 Keys per Provider)"]
-
-        AGENT_GW --> TOKEN_ROUTER_22
-        TOKEN_ROUTER_22 -->|"<= 7.5k Tokens"| GROQ_LPU_22
-        TOKEN_ROUTER_22 -->|"> 7.5k Tokens"| GEMINI_22
-        GROQ_LPU_22 <--> KEY_POOL_22
-        GEMINI_22 <--> KEY_POOL_22
-        AGENT_GW <--> CANVAS_VISION
-    end
-
-    subgraph DataStorage ["Datastores & Vector Search"]
-        MONGO_22["MongoDB Atlas (Persistent Interviews, Jobs, Applications, Scorecards)"]
-        QDRANT_22["Qdrant Cloud (Semantic Resume Vector Chunks & RAG)"]
-    end
-
-    subgraph SynthesisStage ["Post-Interview Synthesis & Recruiter Ranking"]
-        SCORECARD["Multi-Dimensional Match Scorecard (0-100)"]
-        RECRUITER_LB["Recruiter Leaderboard (Ranked Strictly Descending by Match %)"]
-        DECISION_EVIDENCE["Verbatim Transcript Quotes for Strengths & Concerns"]
-
-        SCORECARD --> DECISION_EVIDENCE
-        SCORECARD --> RECRUITER_LB
-    end
-
-    %% Cross-layer Signal Flows
-    MIC_22 -->|"16kHz PCM Stream"| WS_HUB
-    WS_HUB -->|"Relay Stream"| RTC_CTRL
-    RTC_CTRL -->|"Transcribed Utterance"| STATE_MACH
-    STATE_MACH -->|"Trigger Turn Evaluation"| AGENT_GW
-    
-    AGENT_GW -->|"Direct Spoken Question & Voice ID"| EL_TTS_22
-    RTC_CTRL -->|"MP3 Audio Stream"| SPK_22
-    
-    CANVAS_22 -->|"Base64 PNG Image"| WS_HUB
-    WS_HUB -->|"Image Data"| CANVAS_VISION
-    CANVAS_VISION -->|"Extracted Topology, Flows & Bottlenecks"| AGENT_GW
-
-    STATE_MACH <-->|"Persist Working State"| MONGO_22
-    STATE_MACH <-->|"Retrieve Grounding Context"| QDRANT_22
-    
-    SRV_CLOCK -->|"1Hz Monotonic Broadcast"| WS_HUB
-    WS_HUB -->|"Clock Synchronization"| TRANS_22
-
-    STATE_MACH -->|"Final Session Context"| SCORECARD
-    GEMINI_22 -->|"Evaluation Rubric Compilation"| SCORECARD
-    SCORECARD -->|"Save Completed Record"| MONGO_22
+stateDiagram-v2
+    [*] --> Normal
+    Normal --> Extended: Stage time reached
+    Normal --> Conclusion: Early close when appropriate
+    Extended --> Final: Stage time reached
+    Final --> Conclusion: Final response complete
+    Conclusion --> Evaluation: Closing completes
+    Evaluation --> [*]
 ```
 
----
+The fixed stage framework keeps the interview within a known variable time budget: a session can use the normal path or continue through deeper extended and final stages. The interviewer remains responsive to the candidate while the lifecycle prevents the session from expanding indefinitely.
 
-## 3. Multi-Agent LLM Routing Hierarchy (`otheragent.py`)
+## Repository challenge preparation
 
-![Multi-Agent LLM Routing Hierarchy](../architecture/llm-routing-hierarchy.png)
+1. The candidate connects GitHub and selects a repository for discussion and possible assessment.
+2. During the interview, the panel asks what the candidate built, their role, contribution, and technology choices.
+3. After contribution context is available, repository analysis and challenge preparation run in the background while the interview continues.
+4. The preparation process uses a pinned project snapshot to identify a relevant, bounded code area and prepare a problem description.
+5. A challenge is staged in a temporary isolated workspace. The original repository is not modified, and candidate changes are not pushed upstream.
+6. When the challenge is ready, the interviewer can open the coding round. The interview resumes after submission and evaluation.
 
-### LLM Router Flowchart (Mermaid)
+The repository assessment tests a claim in context: the candidate must discuss their contribution and then reason about code in a project they selected. The challenge is intended to be scoped to a relevant change rather than require rebuilding the entire project.
 
-```mermaid
-flowchart TD
-    REQ_MODULE["Requesting Module (normal_stage, extended_stage, final_stage, report)"] -->|"Prompt + Total Tokens"| ROUTER["otheragent.py (LLM Router Logic)"]
-    
-    ROUTER --> TOKEN_CHECK{"TOKEN CHECK: Prompt Tokens > 7.5k?"}
+## Conditional execution and locked tests
 
-    %% Gemini Path (Long Context)
-    TOKEN_CHECK -->|"Yes (> 7.5k Tokens)"| GEMINI_RTR["geminirouter.py (Google AI Studio)"]
-    subgraph GeminiPool ["Gemini Multi-Key Pool (1 to 20 Keys)"]
-        GEMINI_KEYS["20 API KEYS (.env)"]
-        GEMINI_LIMITS["Limit Checks: Day (20 Max Req), Per-Min (120k+ TPM), Concurrency"]
-        GEMINI_KEYS --> GEMINI_LIMITS
-    end
-    GEMINI_RTR <--> GeminiPool
-    GEMINI_RTR -->|"Selected Key + Prompt"| GEMINI_RESP["geminiresponse.py (Gemini 2.5 Flash / 1.5 Flash)"]
-    GEMINI_RESP -->|"Model Output"| ROUTER
+The assessment has two execution paths depending on whether the selected behavior can be tested practically in isolation:
 
-    %% Groq Path (Sub-Second Fast Turn)
-    TOKEN_CHECK -->|"No (<= 7.5k Tokens)"| GROQ_RTR["groqrouter.py (Groq Cloud LPU)"]
-    subgraph GroqPool ["Groq Multi-Key Pool (1 to 20 Keys)"]
-        GROQ_KEYS["20 API KEYS (.env)"]
-        GROQ_LIMITS["Limit Checks: Per-Min (8k TPM), Active Concurrency"]
-        GROQ_KEYS --> GROQ_LIMITS
-    end
-    GROQ_RTR <--> GroqPool
-    GROQ_RTR -->|"Selected Key + Prompt"| GROQ_RESP["groqresponse.py (Llama-3.3-70b-versatile / Gpt-oss-120b)"]
-    GROQ_RESP -->|"Model Output"| ROUTER
-
-    ROUTER -->|"Final Formatted Response"| REQ_MODULE
-```
-
----
-
-## 4. Architectural Comparison: Version 2.1 vs Version 2.2
-
-| Architectural Dimension | Version 2.1 (Agora Foundation) | Version 2.2 (Internal No-Agora) |
+| Assessment path | Workspace behavior | Candidate experience |
 |---|---|---|
-| **Audio Transport Layer** | Agora RTC Engine & WebRTC Relay (Cost-Intensive) | Native HTML5 Web Audio API (16kHz PCM mono) + FastAPI WebSocket Relay (Zero-Telephony Cost) |
-| **Speech-to-Text (STT)** | Agora STT Gateway | Direct ElevenLabs Scribe Realtime STT (`scribe_v2_realtime`) with automatic silence commit |
-| **Text-to-Speech (TTS)** | Neural TTS relayed via Agora | Direct ElevenLabs Flash v2.5 (`eleven_flash_v2_5`) with 21+ assigned voice profiles |
-| **Conversational Latency** | ~2.5 - 3.5s due to Agora bridging hops | Sub-second turn decisions (~0.7 - 1.2s end-to-end) |
-| **LLM Router Hierarchy** | Ad-hoc routing calls | Formalized `otheragent.py` token threshold router (`<= 7.5k` Groq LPU vs `> 7.5k` Gemini) |
-| **Rate Limit Protection** | Single key per provider | Dynamic Multi-Key Token Bucket Pool rotating 1 to 20 API keys per provider |
-| **Visual Architecture Tool** | Conceptual text prompts | Interactive System Design Canvas with Multimodal Vision Engine analyzing base64 PNGs |
-| **Timer Integrity** | Client-initiated timer | Server-authoritative monotonic timer starting strictly on `question_started` playback |
-| **Barge-In Handling** | Agora speech detector | Sub-150ms client-side Web Audio buffer flush on candidate voice onset |
-| **Recruiter Scoring** | Text evaluation summaries | Validated multi-dimensional scorecards with verbatim transcript quote grounding |
+| **Runnable focused behavior** | Prepare only the dependencies needed for the focused test and run a hidden validation file in the isolated workspace. | A Run action is available. The test file is locked from candidate read and edit operations. |
+| **Reference-based behavior** | Keep the challenge scoped to source analysis and reference comparison when running it would require heavyweight or unrelated infrastructure. | No dependency installation or Run action is required; the candidate still submits a code change for evaluation. |
 
----
+In both paths, `problem.md` describes the affected behavior and what the candidate needs to investigate. It does not expose the intended patch or private evaluation reference.
 
-## 5. Platform Interface Showcase
+## Candidate guidance and evaluation
 
-### Candidate Portal and Job Application
-![Candidate Job Directory](screenshots/candidate-portal/01_candidate_jobs_list.png)
-*Candidate browsing verified company job requisitions with dynamic interview parameters.*
+The assistant has access to relevant repository context to explain code structure, behavior, and programming concepts. Its intended role is guidance: it can help the candidate understand the problem without giving the completed challenge solution.
 
-![Candidate Profile and Resume Parsing](screenshots/candidate-portal/04_candidate_profile_resume.png)
-*Structured candidate profile extracting experience, skills matrix, and project history.*
+Evaluation follows two steps:
 
-### Pre-Flight Device Lobby & Live Interview Room
-![Pre-Flight Device Lobby](screenshots/interview-room/01_preflight_device_lobby.png)
-*Hardware verification lobby testing camera feed, Web Audio microphone levels, and disclosing AI evaluation.*
+1. **Correctness:** Determine whether the submitted change restores the intended behavior against the original project reference.
+2. **Approach:** If correct, compare the candidate's solution approach with the original implementation and assess its quality relative to that reference.
 
-![Live Lead Technical Interviewer Turn](screenshots/interview-room/04_lead_tech_interviewer_turn.png)
-*Lead Technical Interviewer probing distributed systems and caching invalidation with real-time audio playback.*
+This separates “did the fix work?” from “how does the fix compare to the project's original approach?” An incorrect change does not receive a positive approach comparison simply because it resembles part of the reference.
 
-![Interactive System Design Canvas](screenshots/interview-room/07_system_design_canvas_drawing.png)
-*Interactive architectural canvas for sketching microservice topologies evaluated by the Multimodal Vision Engine.*
+## Interview tools
 
-### Recruiter Leaderboard and Scorecard Breakdown
-![Recruiter Ranked Leaderboard](screenshots/recruiter-dashboard/04_recruiter_leaderboard_ranked.png)
-*Recruiter dashboard arranging all interviewed candidates in strictly descending order of overall match score.*
+### System-design canvas
 
-![Detailed AI Evaluation Scorecard](screenshots/recruiter-dashboard/05_detailed_ai_evaluation_scorecard.png)
-*Multi-dimensional candidate scorecard detailing strengths, concerns, and hire recommendations with transcript quotes.*
+The canvas lets candidates draw architecture and explain their design visually. The platform can assess the drawing alongside the spoken or typed explanation. It complements the verbal interview and remains available as an adaptive prompt within the staged session.
+
+### Interview typing pad
+
+The interviewer can ask a short code or SQL question during the normal interview. The room presents a typing pad when the question requires a typed response. The answer returns to the same interview flow and contributes evidence about syntax and coding fundamentals.
+
+### Repository coding editor
+
+The coding editor is a separate interview tool for the selected-project challenge. It is backed by an isolated temporary workspace with candidate-editable project files, a problem description, and—when available—a Run action. A generated focused test is not exposed through candidate-facing file operations.
+
+## Privacy and public repository boundaries
+
+GitHub access is used to read the candidate-selected repository for the assessment. Candidate edits take place in a temporary workspace, not in the upstream repository. Assessment workspaces are temporary and are removed after submission or expiry according to the service lifecycle.
+
+This public repository intentionally explains behavior and boundaries without publishing private source, challenge-generation prompts, evaluation internals, credentials, or operational configuration. See [Security Policy](../SECURITY.md) for the public disclosure process.
