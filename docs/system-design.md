@@ -2,7 +2,7 @@
 
 Momentum combines an adaptive interview with bounded session control and optional technical assessment tools. This page summarizes the public engineering principles behind that product behavior.
 
-## Full-stack system design
+## Frontend and backend design
 
 Momentum is implemented as a full-stack web application with separate user-facing surfaces and a shared backend:
 
