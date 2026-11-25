@@ -31,6 +31,35 @@ flowchart LR
 
 The panel consists of distinct interviewer roles coordinated through one interview state and decision flow. It adapts questions and speakers based on the candidate's answers, role context, covered competencies, and available tools. This is an agentic interview experience with a controlled lifecycle, rather than an unbounded conversation.
 
+## Full-stack application architecture
+
+Momentum is composed of multiple cooperating application surfaces rather than a single chatbot page:
+
+| Component | Implementation | Responsibility |
+|---|---|---|
+| **Recruitment portal** | Next.js, React, TypeScript | Candidate and recruiter flows, including jobs, applications, and interview setup. |
+| **Interview room** | React, Vite | Voice interview UI, live transcript, interviewer panel, canvas, typing pad, and coding assessment. |
+| **Application backend** | Python, FastAPI, Uvicorn | API boundary for product workflows, interview controller, state transitions, and realtime event coordination. |
+| **Interview persistence** | MongoDB | Product and interview records used across candidate, recruiter, and interview experiences. |
+| **Assessment lifecycle storage** | SQLite and MongoDB | Assessment lifecycle metadata and repository analysis context. |
+| **Realtime speech** | WebSockets and ElevenLabs | Speech input and voice output integrated with the live interview flow. |
+| **External execution and repository services** | GitHub and Daytona | Read the selected project and provide an isolated workspace for the coding round. |
+| **Model services** | Meta Muse Spark through Meta Model API and Baseten | Interview reasoning, challenge preparation, and candidate-facing conceptual assistance. |
+
+The frontends reflect different interaction needs: the portal handles standard hiring workflows, while the interview room maintains an active realtime session. The backend connects these surfaces to shared application state and external capabilities. This separation keeps product navigation, live interview interaction, model decisions, persistence, and remote execution as identifiable engineering concerns.
+
+### End-to-end software workflow
+
+1. Candidate and recruiter actions enter through the portal and are handled by application services.
+2. Interview setup supplies candidate and role context to a new session.
+3. The interview room communicates with the backend using request/response operations and realtime events.
+4. The server records responses, advances the bounded interview lifecycle, and coordinates speech and model services.
+5. If a repository assessment is selected, background preparation runs while the live interview continues.
+6. When ready, the candidate edits in a temporary Daytona workspace; optional focused tests run there.
+7. The backend returns the assessment result to the interview flow and incorporates available evidence into the final evaluation.
+
+This involves ordinary software engineering concerns alongside AI: cross-frontend integration, API contracts, persistence, asynchronous work, realtime state, authentication and external services, error boundaries, and isolation of untrusted code execution.
+
 ## The bounded adaptive interview
 
 The platform manages a timed sequence of Normal, Extended, and Final stages. The server-side lifecycle controls stage transitions and the session clock. Within each stage, the interviewer can choose among relevant follow-ups and assessment modes. A canvas prompt, a typing-pad question, or a repository challenge is a possible interview action, not a separate stage.

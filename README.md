@@ -2,7 +2,7 @@
 
 ### An agentic interview platform that can examine the work behind a candidate's claims
 
-Momentum is a multi-role AI interviewing platform. A coordinated panel conducts a live, adaptive interview, evaluates system-design work on a canvas, and can assess a candidate's contribution to a project they select from GitHub. Version 3 adds in-interview coding questions and an isolated, repository-specific bug-fix challenge.
+Momentum is a full-stack hiring platform and an agentic AI system. Its candidate and recruiter experiences are built around a live, adaptive interview: a coordinated panel evaluates system-design work on a canvas, asks coding questions in a typing pad, and can assess a candidate's contribution to a project they select from GitHub. Version 3 adds an isolated, repository-specific bug-fix challenge.
 
 > **Full explanation video — 13 minutes:** [Watch the Momentum demonstration](https://www.youtube.com/watch?v=Vsutph-l0Jc&t=100s)
 
@@ -15,6 +15,32 @@ Most interviews evaluate candidates through conversation alone. Momentum combine
 The panel is **agentic**: a coordinating interviewer adapts the next move to the candidate's answers and the interview state. It can pursue a clarification, move between competency areas, ask for a system-design drawing, pose a short syntax or coding question, or open a prepared repository assessment when one is ready. Panel members have distinct roles and take turns; they are coordinated personas in one controlled interview, not independent agents running without shared state.
 
 The experience is adaptive within a bounded structure. Three timed stages—**Normal, Extended, and Final**—provide a predictable interview window. A server-controlled lifecycle manages stage transitions and closure, while the interviewer adapts the questions within each stage. This avoids an open-ended conversation that can drift for hours. The system-design canvas is an optional tool within the interview, not an extra timed stage.
+
+Momentum is also a substantial **software engineering project**: it brings together a candidate and recruiter portal, a separate live interview application, an asynchronous backend, persistent interview state, realtime communication, third-party service integrations, and isolated code execution. The AI is one part of a larger product architecture with clear boundaries between user interfaces, application services, interview orchestration, data, and execution environments.
+
+## Full-stack engineering
+
+| Layer | Technology | Engineering role |
+|---|---|---|
+| **Candidate and recruiter portal** | Next.js, React, TypeScript | Supports account, job, application, and interview setup journeys. |
+| **Live interview room** | React, Vite | Delivers the realtime interview interface, transcript, canvas, typing pad, and repository assessment editor. |
+| **Application backend** | Python, FastAPI, Uvicorn | Exposes application services, owns interview state transitions, coordinates realtime events, and connects product workflows. |
+| **Realtime and speech** | WebSockets, ElevenLabs speech services | Supports live interview events, speech recognition, and interviewer voice output. |
+| **Persistence** | MongoDB and SQLite | Stores product/interview information and assessment lifecycle state. |
+| **External integrations** | GitHub OAuth/API, Daytona | Enables candidate-selected repository access and isolated temporary coding workspaces. |
+| **AI services** | Meta Muse Spark through Meta Model API and Baseten | Powers interview reasoning, repository challenge preparation, and contextual candidate guidance. |
+
+### Engineering work demonstrated
+
+- **End-to-end product architecture:** Distinct portal and interview frontends communicate with a shared backend through defined service boundaries.
+- **Realtime application flows:** Voice, transcript updates, and interview progression operate alongside conventional portal workflows.
+- **Stateful workflow design:** The server coordinates interview stages, repository preparation status, coding-round readiness, submission, and return to the interview.
+- **Background processing:** Repository analysis and challenge preparation proceed while the candidate continues the interview.
+- **External service integration:** Authentication, repository access, model services, speech services, persistence, and remote workspaces are integrated behind product workflows.
+- **Execution isolation:** Candidate changes and focused test execution stay in a temporary workspace, separate from the upstream repository and other interview state.
+- **Graceful capability boundaries:** A Run action is offered when the selected code can be tested practically; heavyweight or unrelated infrastructure is not required for every challenge.
+
+These are useful signals for both **software engineering** and **AI engineering** roles: the product requires full-stack implementation and system integration, as well as adaptive model-driven behavior.
 
 ---
 
